@@ -29,6 +29,127 @@ The OpenFrame harness is ideal for those looking to implement custom SoCs or int
 2. User area of approximately 15mm².
 3. Supports digital, analog, or mixed-signal designs.
 
+Overview
+
+This project extends the Microwatt POWER ISA CPU core by adding a hardware SHA-256 accelerator. The accelerator offloads cryptographic hashing tasks from the CPU, allowing much faster execution compared to software-only implementations.
+
+By integrating the accelerator as a memory-mapped peripheral, Microwatt can efficiently perform secure hashing operations (commonly used in authentication, blockchain, and data integrity applications).
+
+Objectives
+
+Design and integrate a SHA-256 hardware accelerator into Microwatt.
+
+Provide a memory-mapped interface for communication between CPU and accelerator.
+
+Implement and verify using test vectors from NIST.
+
+Demonstrate improved performance over software hashing.
+
+
+System Architecture
+Block Diagram
+ Microwatt Core
+       │
+       │ Wishbone / Memory-Mapped Bus
+       │
+ ┌─────┴──────────┐
+ │  SHA-256 Core  │
+ └─────┬──────────┘
+       │
+       ├─ MESSAGE_IN Registers (512-bit)
+       ├─ CONTROL Register (start/init)
+       ├─ STATUS Register (busy/done)
+       └─ DIGEST_OUT Registers (256-bit)
+
+| Address Offset | Register           | Description                       |
+| -------------- | ------------------ | --------------------------------- |
+| 0x00           | CONTROL            | Start / Init bits                 |
+| 0x04           | STATUS             | Busy / Digest Valid flags         |
+| 0x08–0x44      | MESSAGE\_IN\[0–15] | 16 × 32-bit words (512-bit block) |
+| 0x48–0x64      | DIGEST\_OUT\[0–7]  | 8 × 32-bit words (256-bit digest) |
+
+
+Implementation Plan
+Step 1: Core Selection
+
+Use open-source Secworks SHA256
+ RTL (iterative design, 64 cycles per block).
+
+Step 2: Wrapper Module
+
+Develop sha_wrapper.v to connect SHA core with Microwatt bus.
+
+Handle CONTROL/STATUS registers, input buffering, and digest storage.
+
+Step 3: Integration
+
+Map SHA accelerator at 0xC000_0000 in Microwatt SoC.
+
+Modify Microwatt top-level design to include the wrapper.
+
+Step 4: Verification
+
+RTL testbench (sha_wrapper_tb.v) using known vectors:
+
+"abc" → ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+
+Compare hardware output with Python hashlib.sha256() reference.
+
+Step 5: Demo Program
+
+C program for Microwatt:
+
+Writes 512-bit block to MESSAGE_IN.
+
+Sets CONTROL.start.
+
+Polls STATUS until digest valid.
+
+Reads DIGEST_OUT registers and prints result via UART.
+
+
+Expected Outcomes
+
+Functional: SHA-256 accelerator integrated into Microwatt.
+
+Correctness: Verified against official NIST test vectors.
+
+Performance: Hardware computation significantly faster than software hashing.
+
+
+Deliverables:
+
+RTL source (sha_wrapper.v, integration changes).
+
+Testbenches and simulation results.
+
+Demo program in C.
+
+Documentation (block diagram, FSM, memory map).
+
+
+Impact
+
+Adds cryptographic capability to an open-source POWER CPU.
+
+Demonstrates hardware/software co-design.
+
+Hackathon-ready: small scope, clear verification, measurable performance gain.
+
+ Repository Structure (suggested)
+microwatt-sha256-accelerator/
+│── rtl/
+│   ├── sha_wrapper.v
+│   ├── integration_files.vhd
+│── tb/
+│   ├── sha_wrapper_tb.v
+│── sw/
+│   ├── sha_test.c
+│── docs/
+│   ├── architecture.md
+│   ├── block_diagram.png
+│   ├── fsm_diagram.png
+│── README.md
 # openframe_timer_example
 
 This example implements a simple timer and connects it to the GPIOs.
