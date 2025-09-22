@@ -29,127 +29,110 @@ The OpenFrame harness is ideal for those looking to implement custom SoCs or int
 2. User area of approximately 15mm².
 3. Supports digital, analog, or mixed-signal designs.
 
-Overview
+# 🔐 Microwatt + SHA-256 Hardware Accelerator  
 
-This project extends the Microwatt POWER ISA CPU core by adding a hardware SHA-256 accelerator. The accelerator offloads cryptographic hashing tasks from the CPU, allowing much faster execution compared to software-only implementations.
+## 📌 Project Proposal  
 
-By integrating the accelerator as a memory-mapped peripheral, Microwatt can efficiently perform secure hashing operations (commonly used in authentication, blockchain, and data integrity applications).
+### 1. Introduction  
+Microwatt is an open-source **POWER ISA CPU core**. This project extends it by attaching a **SHA-256 hardware accelerator** as a memory-mapped peripheral. The accelerator offloads cryptographic hashing tasks from the CPU, improving performance for applications like authentication, blockchain, and data integrity.  
 
-Objectives
+---
 
-Design and integrate a SHA-256 hardware accelerator into Microwatt.
+### 2. Objectives  
+- Design and integrate a **SHA-256 accelerator** with Microwatt.  
+- Implement a **memory-mapped interface** for CPU–accelerator communication.  
+- Verify functionality against **NIST SHA-256 test vectors**.  
+- Demonstrate **performance improvement** over software-only hashing.  
 
-Provide a memory-mapped interface for communication between CPU and accelerator.
+---
 
-Implement and verify using test vectors from NIST.
+### 3. System Architecture  
 
-Demonstrate improved performance over software hashing.
-
-
-System Architecture
-Block Diagram
- Microwatt Core
-       │
-       │ Wishbone / Memory-Mapped Bus
-       │
- ┌─────┴──────────┐
- │  SHA-256 Core  │
- └─────┬──────────┘
-       │
-       ├─ MESSAGE_IN Registers (512-bit)
-       ├─ CONTROL Register (start/init)
-       ├─ STATUS Register (busy/done)
-       └─ DIGEST_OUT Registers (256-bit)
-
-| Address Offset | Register           | Description                       |
-| -------------- | ------------------ | --------------------------------- |
-| 0x00           | CONTROL            | Start / Init bits                 |
-| 0x04           | STATUS             | Busy / Digest Valid flags         |
-| 0x08–0x44      | MESSAGE\_IN\[0–15] | 16 × 32-bit words (512-bit block) |
-| 0x48–0x64      | DIGEST\_OUT\[0–7]  | 8 × 32-bit words (256-bit digest) |
+#### 3.1 Block Diagram  
+Microwatt Core
+│
+│ Wishbone / Memory-Mapped Bus
+│
+┌─────┴──────────┐
+│ SHA-256 Core │
+└─────┬──────────┘
+│
+├─ MESSAGE_IN Registers (512-bit)
+├─ CONTROL Register (start/init)
+├─ STATUS Register (busy/done)
+└─ DIGEST_OUT Registers (256-bit)
 
 
-Implementation Plan
-Step 1: Core Selection
+#### 3.2 Memory Map  
 
-Use open-source Secworks SHA256
- RTL (iterative design, 64 cycles per block).
+| Address Offset | Register         | Description                        |
+|----------------|------------------|------------------------------------|
+| `0x00`         | CONTROL          | Start / Init bits                  |
+| `0x04`         | STATUS           | Busy / Digest Valid flags          |
+| `0x08–0x44`    | MESSAGE_IN[0–15] | 16 × 32-bit words (512-bit block)  |
+| `0x48–0x64`    | DIGEST_OUT[0–7]  | 8 × 32-bit words (256-bit digest)  |
 
-Step 2: Wrapper Module
+---
 
-Develop sha_wrapper.v to connect SHA core with Microwatt bus.
+### 4. Implementation Plan  
 
-Handle CONTROL/STATUS registers, input buffering, and digest storage.
+**Step 1: Core Selection**  
+- Use open-source [Secworks SHA-256 Core](https://github.com/secworks/sha256).  
 
-Step 3: Integration
+**Step 2: Wrapper Design**  
+- Develop a Verilog **`sha_wrapper.v`** module to expose CONTROL, STATUS, MESSAGE_IN, and DIGEST_OUT registers to Microwatt.  
 
-Map SHA accelerator at 0xC000_0000 in Microwatt SoC.
+**Step 3: Integration**  
+- Add accelerator to Microwatt SoC at base address `0xC000_0000`.  
+- Connect to Microwatt’s bus interface.  
 
-Modify Microwatt top-level design to include the wrapper.
+**Step 4: Verification**  
+- RTL testbench with NIST vectors (e.g., `"abc"` →  
+  `ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad`).  
+- Compare hardware output with Python `hashlib.sha256()`.  
 
-Step 4: Verification
+**Step 5: Demo Program**  
+- Write a C program for Microwatt to:  
+  - Load message into MESSAGE_IN.  
+  - Trigger hashing via CONTROL register.  
+  - Poll STATUS until ready.  
+  - Read DIGEST_OUT and print result via UART.  
 
-RTL testbench (sha_wrapper_tb.v) using known vectors:
+---
 
-"abc" → ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+### 5. Expected Outcomes  
+- **Functional:** SHA-256 works correctly with known test vectors.  
+- **Performance:** Hardware accelerator faster than software hashing.  
+- **Deliverables:**  
+  - RTL (`sha_wrapper.v`, integration files).  
+  - Testbench and simulation results.  
+  - Demo software (`sha_test.c`).  
+  - Documentation (block diagram, memory map, FSM).  
 
-Compare hardware output with Python hashlib.sha256() reference.
+---
 
-Step 5: Demo Program
+### 6. Impact  
+- Provides **cryptographic acceleration** to Microwatt.  
+- Demonstrates **hardware/software co-design**.  
+- Hackathon-friendly: small scope, measurable results, and high relevance to secure computing.  
 
-C program for Microwatt:
+---
 
-Writes 512-bit block to MESSAGE_IN.
-
-Sets CONTROL.start.
-
-Polls STATUS until digest valid.
-
-Reads DIGEST_OUT registers and prints result via UART.
-
-
-Expected Outcomes
-
-Functional: SHA-256 accelerator integrated into Microwatt.
-
-Correctness: Verified against official NIST test vectors.
-
-Performance: Hardware computation significantly faster than software hashing.
-
-
-Deliverables:
-
-RTL source (sha_wrapper.v, integration changes).
-
-Testbenches and simulation results.
-
-Demo program in C.
-
-Documentation (block diagram, FSM, memory map).
-
-
-Impact
-
-Adds cryptographic capability to an open-source POWER CPU.
-
-Demonstrates hardware/software co-design.
-
-Hackathon-ready: small scope, clear verification, measurable performance gain.
-
- Repository Structure (suggested)
+### 7. Repository Structure  
 microwatt-sha256-accelerator/
 │── rtl/
-│   ├── sha_wrapper.v
-│   ├── integration_files.vhd
+│ ├── sha_wrapper.v
+│ ├── integration_files.vhd
 │── tb/
-│   ├── sha_wrapper_tb.v
+│ ├── sha_wrapper_tb.v
 │── sw/
-│   ├── sha_test.c
+│ ├── sha_test.c
 │── docs/
-│   ├── architecture.md
-│   ├── block_diagram.png
-│   ├── fsm_diagram.png
+│ ├── architecture.md
+│ ├── block_diagram.png
+│ ├── fsm_diagram.png
 │── README.md
+
 # openframe_timer_example
 
 This example implements a simple timer and connects it to the GPIOs.
